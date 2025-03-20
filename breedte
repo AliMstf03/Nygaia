@@ -1,0 +1,56 @@
+import halcon as ha
+import math
+from halcon import read_image, threshold, area_center, height_width_ratio
+from tkinter import Frame
+from tkinter import Label, Button, Entry
+
+scherm = Frame()
+scherm.master.title("Nygaia")
+scherm.configure(background="lightgreen")
+scherm.configure(width=500, height=350)
+scherm.pack()
+
+tekst    = Label (scherm)
+bereik   = Entry (scherm)
+knop     = Button(scherm)
+uitkomst = Label(scherm)
+
+bereik.place(x=20, y= 50)
+knop.place(x=250, y= 50)
+tekst.place(x=20, y= 100)
+uitkomst.place(x=250, y= 100)
+
+
+bereik.configure(width=10)
+knop.configure(text="Geef weer")
+tekst.configure(width=24, height=11)
+uitkomst.configure(width=28, height=11)
+
+
+
+def berekenbreedte(breedte):
+     MaxTotaleBreedte = 35 # in centimeter
+     int_breedte = int(''.join(map(str, breedte[1])))
+     BreedteMatPixels = float(int_breedte / 8196)
+     BreedteMatCm = float(MaxTotaleBreedte * BreedteMatPixels)
+     return BreedteMatCm
+     
+Einde = 50
+
+   
+alle_breedtes = []
+def bereken():
+    alle_breedtes.clear()
+    for Afbeeldingnummer in range(40, Einde):
+        image = read_image(f'C:/Users/alims/OneDrive/Documenten/AfbeeldingenNygaia/image_000{Afbeeldingnummer}.png')
+        lijnen = threshold(image, 0, 150)
+        breedte = height_width_ratio(lijnen) 
+        MatBreedte = berekenbreedte(breedte)
+        tekst.configure(text="\n".join([f"De breedte van de mat in cm is: " for i in range (0,10)])) 
+    
+        alle_breedtes.append(MatBreedte)
+
+    
+    uitkomst.configure(text="\n".join([f"{i+1}: {breedte} cm" for i, breedte in enumerate(alle_breedtes)]))
+
+         
