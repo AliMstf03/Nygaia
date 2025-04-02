@@ -1,0 +1,11 @@
+import halcon as ha
+import math
+from Breedte import Breedte 
+from halcon import read_image, threshold, area_center, height_width_ratio
+from tkinter import Frame
+from tkinter import Label, Button, Entry, Tk
+
+root = Tk()
+
+app = Breedte(master=root)  # Initialiseer de GUI in het hoofdvenster
+app.mainloop()
