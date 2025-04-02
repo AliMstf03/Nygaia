@@ -1,0 +1,28 @@
+import halcon as ha
+import math
+from halcon import read_image, threshold, area_center, height_width_ratio, gen_rectangle1, reduce_domain
+from tkinter import Frame
+from tkinter import Label, Button, Entry
+
+afbeeldingnummer = 101
+class Dichheid:
+    
+    def __init__(self):
+        self.weergave = Label(self)
+        self.weergave.place(x= 250, y=50)
+    
+    def PixelPerLijn ():
+        image = read_image(f'C:/Users/alims/OneDrive/Documenten/AfbeeldingenNygaia/image_00{afbeeldingnummer}.png')
+        CreateLine = gen_rectangle1(500, 0, 500, 8196)
+        SelectedLine = reduce_domain(image, CreateLine)
+        lijnen1 = threshold(SelectedLine, 8, 80) 
+        breedte = height_width_ratio(lijnen1)
+        aantaldichtheidpixels = area_center(lijnen1)
+        print(aantaldichtheidpixels[0])
+
+    def dichtheidpercentage(dichtheid):
+        print("Hello")
+        
+    
+
+        
