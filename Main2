@@ -1,0 +1,17 @@
+import halcon as ha
+import math
+from Weergave import Weergave
+from Totaal import Totaal
+from halcon import read_image, threshold, area_center, height_width_ratio
+from tkinter import Frame
+from tkinter import Label, Button, Entry, Tk
+
+root = Tk()
+root.title("Nygaia")
+root.geometry("850x550")
+
+app = Totaal(master=root)
+app.pack(fill="both", expand=True)
+
+
+root.mainloop()
