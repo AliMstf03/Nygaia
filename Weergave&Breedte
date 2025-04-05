@@ -1,0 +1,132 @@
+Je zei:
+import halcon as ha
+import tkinter as tk
+import math
+from PIL.ImageDraw  import Draw
+from PIL.ImageTk    import PhotoImage
+from PIL            import Image, ImageTk
+from halcon         import read_image, threshold, area_center, height_width_ratio, gen_rectangle1, reduce_domain
+from tkinter        import Frame
+from tkinter        import Label, Button, Entry, Tk
+
+class Weergave(Frame):
+    def __init__(self, master=None):
+        super().__init__(master)
+        self.master = master 
+        self.master.title("Weergave")
+        self.configure(background="lightblue")
+        self.configure(width=250, height=250)
+        self.pack()
+
+        self.image.open()
+        self.afbeeldingnummer = 101
+        self.afbeelding       = PhotoImage(image='C:/Users/alims/OneDrive/Documenten/AfbeeldingenNygaia/image_000101.png')
+        self.labeltje         = Label(self)
+        self.labeltje.place(x=0, y=0)
+ 
+        self.photo = None
+        self.afbeelding = Label(self, image = self.photo)
+        self.afbeelding.pack()
+    
+       # Knoppen
+        self.vorige = Button(self, text="Vorige", command=self.vorige_afbeelding)
+        self.vorige.pack(side="left")
+
+        self.volgende = Button(self, text="Volgende", command=self.volgende_afbeelding)
+        self.volgende.pack(side="right")
+
+       
+
+    def vorige_afbeelding(self):
+        self.afbeeldingnummer -= 1
+        self.update_afbeelding()
+
+    def volgende_afbeelding(self):
+        self.afbeeldingnummer += 1
+        self.update_afbeelding()
+    
+    def update_afbeelding(self):
+            pad = f"C:/Users/alims/OneDrive/Documenten/AfbeeldingenNygaia/image_000{self.afbeeldingnummer}.png"
+            try:
+                self.image = Image.open(pad)
+                self.image = self.image.resize((200, 200))
+                self.photo = ImageTk.PhotoImage(self.image)
+                self.afbeelding.config(image=self.photo)
+                
+            except Exception as e:
+                print(f"Fout bij laden afbeelding: {e}")
+
+
+scherm = Tk()
+app = Weergave(scherm)
+scherm.mainloop()
+
+
+-----------------------------------------------------------
+
+import halcon as ha
+import math
+from halcon import read_image, threshold, area_center, height_width_ratio
+from tkinter import Frame
+from tkinter import Label, Button, Entry
+
+
+
+
+
+
+class Breedte(Frame):
+
+    def __init__(self, master=None):
+        super().__init__(master)
+        self.master = master
+        self.master.title("Nygaia")
+        self.configure(background="lightgreen")
+        self.configure(width=500, height=350)
+        self.pack()
+
+        self.tekst    = Label (self)
+        self.bereik   = Entry (self)
+        self.knop     = Button(self)
+        self.uitkomst = Label(self)
+
+        self.bereik.place(x=20, y= 50)
+        self.knop.place(x=250, y= 50)
+        self.tekst.place(x=20, y= 100)
+        self.uitkomst.place(x=250, y= 100)
+
+
+        self.bereik.configure(width=10)
+        self.knop.configure(text="Geef weer")
+        self.tekst.configure(width=26, height=11)
+        self.uitkomst.configure(width=26, height=11)
+        self.knop.configure(command=self.bereken)  
+
+    def berekenbreedte(self, breedte):
+        MaxTotaleBreedte = 30.2 # in centimeter
+        int_breedte = int(''.join(map(str, breedte[1])))          # Tuple omzetten naar een integer
+        BreedteMatPixels = float(int_breedte / 8196)              # Integer omzetten naar een float
+        BreedteMatCm = float(MaxTotaleBreedte * BreedteMatPixels) # Daarwerkelijke breedte in Cm berekenen
+        return BreedteMatCm                                       # Retouneer de waarde
+
+
+    def bereken(self):
+        alle_breedtes = []
+        alle_breedtes.clear()
+        for Afbeeldingnummer in range(41, 51):
+            image = read_image(f"'C:/Users/alims/OneDrive/Documenten/AfbeeldingenNygaia/image_000{Afbeeldingnummer}.png'")
+            lijnen = threshold(image, 0, 50)
+            breedte = height_width_ratio(lijnen) 
+            MatBreedte = self.berekenbreedte(breedte)
+            self.tekst.configure(text="\n".join([f"De breedte van de mat in cm is: " for i in range (0,10)])) 
+        
+            alle_breedtes.append(MatBreedte)
+
+        
+        self.uitkomst.configure(text="\n".join([f"{i+1}: {breedte} cm" for i, breedte in enumerate(alle_breedtes)]))
+
+
+
+
+   
+
