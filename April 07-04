@@ -1,0 +1,201 @@
+import halcon as ha
+import math
+from Weergave import Weergave
+import Breedte
+from Totaal import Totaal
+from halcon import read_image, threshold, area_center, height_width_ratio
+from tkinter import Frame
+from tkinter import Label, Button, Entry, Tk
+
+root = Tk()
+root.title("Nygaia")
+root.geometry("850x550")
+
+app = Totaal(master=root)
+
+pad = app.pad
+
+app_breedte = Breedte(master=root, pad=pad)
+
+app.pack(fill="both", expand=True)
+
+
+root.mainloop()
+
+
+-------------------------------------------------------
+
+
+import halcon as ha
+import math
+from halcon import read_image, threshold, area_center, height_width_ratio, gen_rectangle1, reduce_domain
+from tkinter import Frame
+from tkinter import Label, Button, Entry
+
+afbeeldingnummer = 101
+class Dichheid:
+    
+    def __init__(self):
+        self.weergave = Label(self)
+        self.weergave.place(x= 250, y=50)
+        self.afbeeldingnummer = 101
+        
+        
+    def BerekenTotaalAantalAreaPixels(self):
+        TotaalAantalAreaPixels = 0
+        for Regels in range (1, 1024):
+            self.Rectangle1    = gen_rectangle1(Regels, 0, Regels, 8196)
+            self.ImageReduced  = reduce_domain(self.image1,self.Rectangle1)
+            self.DrempelWaarde = threshold(self.ImageReduced, 8, 80)
+            self.Gebied        = area_center(self.DrempelWaarde)
+            TotaalAantalAreaPixels = TotaalAantalAreaPixels + int(self.Gebied[0])
+        return TotaalAantalAreaPixels
+    
+    def BerekenGemiddeldeAreaPerAfbeelding(self):
+        
+        for self.Afbeeldingen in range (100,110):
+            self.image1 = read_image(f'C:/Users/alims/OneDrive/Documenten/AfbeeldingenNygaia/image_00{self.Afbeeldingen}.png')
+            
+            GemiddeldeAreaPerlijn       = self.BerekenTotaalAantalAreaPixels(self.image1) / 1024
+            GemiddeldeAreaPerAfbeelding = GemiddeldeAreaPerlijn / 8196
+        print(f"{GemiddeldeAreaPerAfbeelding} en {GemiddeldeAreaPerlijn}")
+
+
+        
+
+--------------------------------------------------------------------
+
+import halcon as ha
+import math
+
+from Totaal import Totaal
+from halcon import read_image, threshold, area_center, height_width_ratio
+from tkinter import Frame
+from tkinter import Label, Button, Entry
+
+
+
+
+
+
+
+class Breedte:
+
+
+    def __init__(self, master=None, pad=""):
+        self.Breedte
+        self.pad = pad
+
+
+    def printpad():
+        return print(f'{self.pad}')
+        
+    def berekenbreedte_per_lijn(self, breedte):
+        MaxTotaleBreedte = 30.2 # in centimeter
+        int_breedte = int(''.join(map(str, breedte[1])))          # Tuple omzetten naar een integer
+        BreedteMatPixels = float(int_breedte / 8196)              # Integer omzetten naar een float
+        BreedteMatCm = float(MaxTotaleBreedte * BreedteMatPixels) # Daarwerkelijke breedte in Cm berekenen
+        return BreedteMatCm                                       # Retouneer de waarde
+
+
+    def bereken(self):
+        alle_breedtes_per_foto = []
+        alle_breedtes_per_foto.clear()
+        for Afbeeldingnummer in range(41, 51):
+            image = read_image(self.pad)
+            lijnen = threshold(image, 0, 50)
+            breedte = height_width_ratio(lijnen) 
+            MatBreedte = self.berekenbreedte_per_lijn(breedte)
+            self.tekst.configure(text="\n".join([f"De breedte van de mat in cm is: " for i in range (0,10)])) 
+            alle_breedtes_per_foto.append(MatBreedte)
+
+        
+        self.uitkomst.configure(text="\n".join([f"{i+1}: {breedte} cm" for i, breedte in enumerate(alle_breedtes_per_foto)]))
+
+
+
+
+   
+
+    
+
+------------------------------------------------------------
+
+
+from tkinter import Frame, Label, Button, Tk
+from PIL import Image, ImageTk
+
+class Totaal(Frame):
+    def __init__(self, master=None):
+        super().__init__(master)
+        self.master = master
+        self.master.title("Nygaia Analyse")
+        self.configure(background="white")
+        self.configure(width=800, height=500)
+        self.pack()
+
+        # Instellingen
+        self.afbeeldingnummer = 101
+        self.afbeelding_pad = "C:/Users/alims/OneDrive/Documenten/AfbeeldingenNygaia"
+
+        # Afbeelding zelf
+        self.label_afbeelding = Label(self, bg="black")
+        self.label_afbeelding.place(x=100, y=140, width=300, height=80)
+
+        # Vorige knop (links van afbeelding)
+        self.vorige = Button(self, text="←", command=self.vorige_afbeelding)
+        self.vorige.place(x=60, y=165, width=30, height=30)
+
+        # Volgende knop (rechts van afbeelding)
+        self.volgende = Button(self, text="→", command=self.volgende_afbeelding)
+        self.volgende.place(x=410, y=165, width=30, height=30)
+
+        # Label: Gemiddelde breedte
+        self.breedte_label = Label(self, text="De Gemiddelde breedte van de mat is:", anchor="w")
+        self.breedte_label.place(x=450, y=130, width=280, height=30)
+        self.breedte_waarde = Label(self, bg="white", relief="solid")
+        self.breedte_waarde.place(x=720, y=130, width=60, height=30)
+
+        # Label: Gemiddelde dichtheid
+        self.dichtheid_label = Label(self, text="De gemiddelde dichtheid van de mat is:", anchor="w")
+        self.dichtheid_label.place(x=450, y=200, width=280, height=30)
+        self.dichtheid_waarde = Label(self, bg="white", relief="solid")
+        self.dichtheid_waarde.place(x=720, y=200, width=60, height=30)
+
+        # Start met afbeelding laden
+        self.update_afbeelding()
+
+    def vorige_afbeelding(self):
+        self.afbeeldingnummer -= 1
+        self.update_afbeelding()
+
+    def volgende_afbeelding(self):
+        self.afbeeldingnummer += 1
+        self.update_afbeelding()
+
+    def update_afbeelding(self):
+        self.pad = f"{self.afbeelding_pad}/image_00{self.afbeeldingnummer:03}.png"
+        try:
+            afbeelding = Image.open(pad)
+            afbeelding = afbeelding.resize((250, 250))
+            self.photo = ImageTk.PhotoImage(afbeelding)
+            self.label_afbeelding.config(image=self.photo)
+            self.label_afbeelding.image = self.photo  # referentie vasthouden
+
+            # Voorbeeldwaarden (hier kan je HALCON-analyse toevoegen)
+            self.breedte_waarde.config(text="12.3")
+            self.dichtheid_waarde.config(text="7.8")
+            print(f"Zoekpad: {pad}")
+
+
+        except Exception as e:
+            print(f"Fout bij laden afbeelding: {e}")
+            self.label_afbeelding.config(text="Afbeelding niet gevonden", image="")
+            self.label_afbeelding.image = None
+            
+    def get_pad (self):
+            return self.pad
+
+
+
+
