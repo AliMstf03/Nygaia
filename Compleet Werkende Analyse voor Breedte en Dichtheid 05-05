@@ -1,0 +1,166 @@
+import os
+from tkinter import Frame, Label, Button
+from PIL import Image, ImageTk
+from halcon import read_image, threshold, area_center, gen_rectangle1, reduce_domain, height_width_ratio
+
+class Breedte:
+    def __init__(self, pad):
+        self.pad = pad
+        self.GemiddeldeBreedtePerAfbeelding = 0
+        
+    def BerekenTotaalAantalBreedtePixels(self, image):
+        totaal = 0
+        for regel in range(1, 1024):
+            rectB = gen_rectangle1(regel, 0, regel, 8196)
+            reducedB = reduce_domain(image, rectB)
+            drempelB = threshold(reducedB, 8, 80)
+            breedteB = height_width_ratio(drempelB)
+            if breedteB and isinstance (breedteB[0], (int, float)):
+                totaal += float(breedteB[0])
+            elif breedteB and isinstance (breedteB[0], list) and len(breedteB[0]) >0:
+                totaal += float(breedteB[1][0])
+        print (totaal) 
+        return totaal
+    
+    def BerekenGemiddeldeBreedtePerAfbeelding(self):
+        if not os.path.exists(self.pad):
+            print(f"[Foutmelding] Afbeelding niet gevonden: {self.pad}")
+            return 0
+        
+        try:
+            image = read_image(self.pad)
+            MaxTotaleBreedte = 30.2 # in centimeters
+            GemiddeldeBreedtePerLijn        = self.BerekenTotaalAantalBreedtePixels(image) / 1024
+            GemiddeldeBreedtePerAfbeelding  = GemiddeldeBreedtePerLijn / 8196
+            self.GemiddeldeBreedtePerAfbeeldingCM = GemiddeldeBreedtePerAfbeelding * MaxTotaleBreedte
+            print (GemiddeldeBreedtePerLijn)
+            return self.GemiddeldeBreedtePerAfbeeldingCM
+        except Exception as ex: 
+            print(f"[Foutmelding] Halconfout opgetreden tijdens analyse: {ex}")
+            return 0
+        
+        
+class Dichtheid:
+    def __init__(self, pad):
+        self.pad = pad
+        self.GemiddeldeAreaPerAfbeelding = 0
+
+    def BerekenTotaalAantalAreaPixels(self, image):                             # Regel voor regel alle geselecteerde pixels bij elkaar optellen
+        totaal = 0
+        for regel in range(1, 1024):
+            rectA = gen_rectangle1(regel, 0, regel, 8196)
+            reducedA = reduce_domain(image, rectA)
+            drempelA = threshold(reducedA, 8, 80)
+            gebiedA = area_center(drempelA)
+            if gebiedA and isinstance(gebiedA[0], (int, float)):                  #Check of het een getal (Toch niet het geval)
+             totaal += float(gebiedA[0])
+            elif gebiedA and isinstance(gebiedA[0], list) and len(gebiedA[0]) > 0: # Check om het een dubbele list (haazet de waarde om in een float)
+                totaal += float(gebiedA[0][0])
+        return totaal
+
+    def BerekenGemiddeldeAreaPerAfbeelding(self):
+        if not os.path.exists(self.pad):
+            print(f"[FOUT] Afbeelding niet gevonden: {self.pad}")
+            return 0
+
+        try:
+            image = read_image(self.pad)
+            gemiddeld_per_lijn = self.BerekenTotaalAantalAreaPixels(image) / 1024           # Gemiddelde geselecteerde pixels per lijn
+            self.GemiddeldeAreaPerAfbeelding = round(gemiddeld_per_lijn / 8196, 3) * 100
+            return self.GemiddeldeAreaPerAfbeelding
+        except Exception as ex:
+            print(f"[Foutmelding] Halconfout opgetreden tijdens analyse: {ex}")
+            return 0
+
+
+class Totaal(Frame):
+    def __init__(self, master=None):
+        super().__init__(master)
+        self.master = master
+        self.master.title("Nygaia Analyse")
+        self.configure(background="white", width=800, height=500)
+        self.pack()
+
+        # Instellingen
+        self.afbeeldingnummer = 101
+        self.afbeelding_pad = "C:/Users/alims/OneDrive/Documenten/AfbeeldingenNygaia"
+        self.pad = self.build_pad()
+
+        # UI: Afbeelding
+        self.label_afbeelding = Label(self, bg="black")
+        self.label_afbeelding.place(x=100, y=140, width=300, height=80)
+
+        self.vorige = Button(self, text="←", command=self.vorige_afbeelding)
+        self.vorige.place(x=60, y=165, width=30, height=30)
+
+        self.volgende = Button(self, text="→", command=self.volgende_afbeelding)
+        self.volgende.place(x=410, y=165, width=30, height=30)
+
+        # Labels
+        self.breedte_label = Label(self, text="De Gemiddelde breedte van de mat is:", anchor="w")
+        self.breedte_label.place(x=450, y=130, width=280, height=30)
+        self.breedte_waarde = Label(self, bg="white", relief="solid")
+        self.breedte_waarde.place(x=720, y=130, width=60, height=30)
+
+        self.dichtheid_label = Label(self, text="De gemiddelde dichtheid van de mat is:", anchor="w")
+        self.dichtheid_label.place(x=450, y=200, width=280, height=30)
+        self.dichtheid_waarde = Label(self, bg="white", relief="solid")
+        self.dichtheid_waarde.place(x=720, y=200, width=60, height=30)
+
+        self.update_afbeelding()
+
+    def build_pad(self):
+        return f"{self.afbeelding_pad}/image_00{self.afbeeldingnummer:03}.png"
+
+    def vorige_afbeelding(self):
+        self.afbeeldingnummer -= 1
+        self.update_afbeelding()
+
+    def volgende_afbeelding(self):
+        self.afbeeldingnummer += 1
+        self.update_afbeelding()
+
+    def update_afbeelding(self):
+        self.pad = self.build_pad()
+
+        if not os.path.exists(self.pad):
+            self.label_afbeelding.config(text="Afbeelding niet gevonden", image="")
+            self.label_afbeelding.image = None
+            print(f"[FOUT] Bestandsnaam ongeldig: {self.pad}")
+            return
+
+        try:
+            afbeelding = Image.open(self.pad)
+            afbeelding = afbeelding.resize((250, 250))
+            self.photo = ImageTk.PhotoImage(afbeelding)
+            self.label_afbeelding.config(image=self.photo)
+            self.label_afbeelding.image = self.photo
+
+            # Breedte: voorlopig hardcoded
+            self.breedte_instance = Breedte(self.pad)
+            breedte = self.breedte_instance.BerekenGemiddeldeBreedtePerAfbeelding()
+            self.breedte_waarde.config(text= f"{breedte:.2f} CM")
+
+            # Dichtheid berekenen
+            self.dichtheid_instance = Dichtheid(self.pad)
+            dichtheid = self.dichtheid_instance.BerekenGemiddeldeAreaPerAfbeelding()
+            self.dichtheid_waarde.config(text=f"{dichtheid:.2f}%")
+
+        except Exception as e:
+            print(f"[FOUT] Kan afbeelding niet openen: {e}")
+            self.label_afbeelding.config(text="Fout bij laden", image="")
+            self.label_afbeelding.image = None
+
+    def get_pad(self):
+        return self.pad
+
+
+----------------------------------
+
+from tkinter import Tk
+from Totaal import Totaal
+
+if __name__ == "__main__":
+    root = Tk()
+    app = Totaal(master=root)
+    app.mainloop()
