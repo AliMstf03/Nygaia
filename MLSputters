@@ -1,0 +1,165 @@
+import torch
+import torchvision
+import torchvision.transforms as transforms # vervormen van afbeeldingen voor augmentatie
+
+from torchvision.datasets import ImageFolder
+from torch.utils.data import DataLoader
+
+import matplotlib.pyplot as plt
+import numpy as np
+from tqdm import tqdm
+
+from sklearn.metrics import confusion_matrix
+
+import torch.nn as nn # neurale netwerk lagen
+import torch.nn.functional as F
+
+import torch.optim as optim
+
+
+class Sputters(nn.Module):
+    def __init__(self, in_channels, num_classes = 2):
+        super().__init__()
+        
+        #Eerste convolutionele laag: 1 input channel voor 1 grijswaarde
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=16, kernel_size=3, stride=1, padding=2)
+        self.pool1 = nn.MaxPool2d(2,2)
+        
+        self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=2)
+        self.pool2 = nn.MaxPool2d(2,2)
+        
+        self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=2)
+        self.pool3 = nn.MaxPool2d(2,2)
+        
+        with torch.no_grad(): #Om in de toekomst met andere formaten ook te kunnen werken
+            OnbekendeAfmetingen = torch.zeros(1, in_channels, 100, 800) 
+            x = self.pool1(F.relu(self.conv1(OnbekendeAfmetingen)))
+            x = self.pool2(F.relu(self.conv2(x)))
+            x = self.pool3(F.relu(self.conv3(x)))
+            feature_size = x.view(1, -1).size(1)  
+        
+        
+        self.flatten = nn.Flatten()
+        self.drop1 = nn.Dropout(p=0.3)       # Om overfitting tegen te gaan)
+        self.out = nn.Linear(in_features=feature_size, out_features=1)
+        
+        
+        
+        
+    def forward (self, x): #Vertellen wat het netwerk moet doen
+        x = F.relu(self.conv1(x))
+        x = self.pool1(x)
+        x = F.relu(self.conv2(x))
+        x = self.pool2(x)
+        x = F.relu(self.conv3(x))
+        x = self.pool3(x)
+        
+        x = self.flatten(x)
+        
+        x = self.drop1(x)
+        x = torch.sigmoid(self.out(x))
+        return x
+    
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+input_size = 100*800
+num_classes = 2
+learning_rate = 0.001
+batch_size = 4
+num_epochs = 10
+
+
+
+transform = transforms.Compose([ #stelt meerdere transforms tegelijk in
+    transforms.Grayscale(num_output_channels=1),
+    transforms.Resize((100, 800)),
+    transforms.ToTensor()
+])
+
+data_path_train = "C:/Users/alims/Documents/NygaiaMLTrain/"
+data_path_test =  "C:/Users/alims/Documents/NygaiaMLTest/"
+
+train_dataset = ImageFolder(root=data_path_train, transform=transform)
+train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+
+test_dataset = ImageFolder(root=data_path_test , transform=transform)
+test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=True)
+
+model = Sputters(in_channels=1, num_classes=num_classes).to(device)
+
+criterion = nn.BCELoss() # binary clasification
+optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+
+for epoch in range(num_epochs): # Het train process
+    print(f"Epoch [{epoch +1}/{num_epochs}]")
+    for batch_index, (data, targets) in enumerate(tqdm(train_loader)): # bar voor om te laten zien hoever het proces is
+        #Verplaats de data en targets naar het device
+        data = data.to(device)
+        targets = targets.to(device)
+
+        #Forward pass: compute the model output
+        scores = model(data).squeeze(1)
+        loss = criterion(scores, targets.float())
+        
+        #Backward pass: compute the gradients
+        optimizer.zero_grad()
+        loss.backward()
+        
+        #Optimization step: update the model
+        optimizer.step()
+        
+        
+        
+def check_accuracy(loader, model, dataset_name="dataset"): #Controleer hoe accuraat het model is
+    print(f"Checking accuracy on {dataset_name} set")
+    
+    num_correct = 0
+    num_samples = 0
+    model.eval() # Schakel evaluation mode in
+    
+    with torch.no_grad():
+        for x, y in loader:
+            x = x.to(device)
+            y = y.to(device)
+            
+            #Forward pass: compute the model output
+            #scores = model(x)
+            #_, predictions = scores.max(1).float() # neem de index van een log waarschijnlijkheid van meer dan de helft, want er wordt BC uitgevoerd
+            #num_correct += (predictions == y).sum() # Tel de juiste voorspellingen bij elkaar op
+            #num_samples += predictions.size(0) # tel het aantal smaples
+            
+            scores = model(x)
+            predictions = (scores > 0.5).float().view(-1)  # Zorgt dat shape (batch,)
+            y = y.view(-1)  # Ook dit forceren we naar (batch,)
+
+            num_correct += (predictions == y).sum().item()
+            num_samples += y.size(0)
+            
+        accuracy = float(num_correct) / float(num_samples) * 100
+        print(f"Got {num_correct}/{num_samples} with accuracy {accuracy:.2f}%")
+    
+    model.train()  # Set the model back to training mode
+    
+def compute_confusion_matrix(loader, model):
+    all_preds = []
+    all_targets = []
+    model.eval()
+    
+    with torch.no_grad():
+        for x, y in loader:
+            x = x.to(device)
+            y = y.to(device)
+
+            scores = model(x)
+            preds = (scores > 0.5).float().view(-1)
+            all_preds.extend(preds.cpu().numpy())
+            all_targets.extend(y.view(-1).cpu().numpy())
+
+    cm = confusion_matrix(all_targets, all_preds)
+    print("Confusion Matrix:")
+    print(cm)
+    
+check_accuracy(train_loader, model, dataset_name="training")
+check_accuracy(test_loader, model, dataset_name = "testing")
+
+compute_confusion_matrix(test_loader, model)
